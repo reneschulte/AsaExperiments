@@ -62,3 +62,5 @@ crashlytics-build.properties
 
 /AsaBasicDemo/Assets/WSATestCertificate.pfx
 /AsaBasicDemo/Assets/WSATestCertificate.pfx.meta
+/AsaBasicDemo/Assets/Scripts/ConstantsSecret.cs
+/AsaBasicDemo/Assets/Scripts/ConstantsSecret.cs.meta

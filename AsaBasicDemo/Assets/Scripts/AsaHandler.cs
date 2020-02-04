@@ -1,6 +1,5 @@
 ﻿using Microsoft.Azure.SpatialAnchors;
 using System;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.XR.WSA;
@@ -12,7 +11,6 @@ public class AsaHandler : MonoBehaviour
     public GameObject Prefab;
 
     private GameObject _prefabInstance;
-    private Material _prefabInstanceMaterial;
 
     private GestureRecognizer _gestureRecognizer;
     private bool _wasTapped = false;
@@ -22,15 +20,6 @@ public class AsaHandler : MonoBehaviour
     private string _currentCloudAnchorId = String.Empty;
     private float _recommendedSpatialDataForUpload = 0;
 
-    /// <summary>
-    /// Our queue of actions that will be executed on the main thread.
-    /// </summary>
-    private readonly ConcurrentQueue<Action> _dispatchQueue;
-
-    public AsaHandler()
-    {
-        _dispatchQueue = new ConcurrentQueue<Action>();
-    }
 
     void Start()
     {
@@ -50,38 +39,34 @@ public class AsaHandler : MonoBehaviour
         }
         _wasTapped = true;
 
-        // We have saved an anchor, so we will now look for it.
-        if (!String.IsNullOrEmpty(_currentCloudAnchorId))
+        if (String.IsNullOrEmpty(_currentCloudAnchorId))
         {
-            Debug.Log("ASA Info: We will look for a placed anchor.");
-            _wasTapped = true;
+            Log("Creating new anchor...");
 
+            // Just in case clean up any anchors that have been placed.
+            CleanupObjects();
+
+            // Raycast to find a hitpoint where the anchor should be placed
+            Ray GazeRay = new Ray(tapEvent.headPose.position, tapEvent.headPose.forward);
+            Physics.Raycast(GazeRay, out RaycastHit hitInfo, float.MaxValue);
+
+            CreateAndSaveAnchor(hitInfo.point);
+        }
+        else
+        {
             ResetSession(() =>
             {
                 InitializeSession();
 
                 // Create a Watcher to look for the anchor we created.
-                AnchorLocateCriteria criteria = new AnchorLocateCriteria();
-                criteria.Identifiers = new string[] { _currentCloudAnchorId };
+                AnchorLocateCriteria criteria = new AnchorLocateCriteria
+                {
+                    Identifiers = new string[] { _currentCloudAnchorId }
+                };
                 _cloudSpatialAnchorSession.CreateWatcher(criteria);
 
-                Debug.Log("ASA Info: Watcher created. Number of active watchers: " + _cloudSpatialAnchorSession.GetActiveWatchers().Count);
+                Log($"{_cloudSpatialAnchorSession.GetActiveWatchers().Count} watchers created. Localizing anchor.\r\nLook around to gather spatial data...");
             });
-        }
-        else
-        {
-            Log("Creating new anchor...");
-
-            // Clean up any anchors that have been placed.
-            CleanupObjects();
-
-            // Construct a Ray using forward direction of the HoloLens.
-            Ray GazeRay = new Ray(tapEvent.headPose.position, tapEvent.headPose.forward);
-
-            // Raycast to get the hit point in the real world.
-            Physics.Raycast(GazeRay, out RaycastHit hitInfo, float.MaxValue);
-
-            CreateAndSaveAnchor(hitInfo.point);
         }
     }
 
@@ -91,12 +76,10 @@ public class AsaHandler : MonoBehaviour
     /// <param name="hitPoint">The hit point.</param>
     private void CreateAndSaveAnchor(Vector3 hitPoint)
     {
-        // Create a white sphere.
+        // Instantiate the 
         _prefabInstance = GameObject.Instantiate(Prefab, hitPoint, Quaternion.identity) as GameObject;
         var localAnchor = _prefabInstance.AddComponent<WorldAnchor>();
-        _prefabInstanceMaterial = _prefabInstance.GetComponent<MeshRenderer>().material;
-        _prefabInstanceMaterial.color = Color.white;
-        Debug.Log("ASA Info: Created a local anchor.");
+        Log("Created local anchor.");
 
         // Create CloudSpatialAnchor and add the local anchor
         _currentCloudAnchor = new CloudSpatialAnchor
@@ -108,17 +91,13 @@ public class AsaHandler : MonoBehaviour
             // Wait for enough data about the environment.
             while (_recommendedSpatialDataForUpload < 1.0F)
             {
-                await Task.Delay(150);
+                Log($"Look around to capture enough anchor data: {_recommendedSpatialDataForUpload:P0}", Color.yellow);
+                await Task.Delay(100);
             }
 
             try
             {
-                QueueOnUpdate(() =>
-                {
-                    // We are about to save the CloudSpatialAnchor to the Azure Spatial Anchors, turn it yellow.
-                    _prefabInstanceMaterial.color = Color.yellow;
-                });
-
+                Log($"Creating and uploading ASA anchor...", Color.yellow);
                 await _cloudSpatialAnchorSession.CreateAnchorAsync(_currentCloudAnchor);
 
                 if (_currentCloudAnchor != null)
@@ -126,35 +105,17 @@ public class AsaHandler : MonoBehaviour
                     // Allow the user to tap again to clear state and look for the anchor.
                     _wasTapped = false;
 
-                    // Record the identifier to locate.
                     _currentCloudAnchorId = _currentCloudAnchor.Identifier;
-
-                    QueueOnUpdate(() =>
-                    {
-                        // Turn the sphere blue.
-                        _prefabInstanceMaterial.color = Color.blue;
-                        LogText.color = Color.blue;
-                        LogText.text = $"Saved anchor to Azure Spatial Anchors: {_currentCloudAnchorId}";
-                    });
-
-                    Debug.Log("ASA Info: Saved anchor to Azure Spatial Anchors! Identifier: " + _currentCloudAnchorId);
+                    Log($"Saved anchor to Azure Spatial Anchors: {_currentCloudAnchorId}\r\nTap to localize it.", Color.cyan);
                 }
                 else
                 {
-                    QueueOnUpdate(() =>
-                    {
-                        _prefabInstanceMaterial.color = Color.red;
-                    });
-                    Debug.LogError("ASA Error: Failed to save, but no exception was thrown.");
+                    Log("Failed to create ASA anchor but no exception was thrown.", Color.red);
                 }
             }
             catch (Exception ex)
             {
-                QueueOnUpdate(() =>
-                {
-                    _prefabInstanceMaterial.color = Color.red;
-                });
-                Debug.LogError("ASA Error: " + ex.Message);
+                Log($"Failed to create ASA anchor: {ex.Message}", Color.red);
             }
         });
     }
@@ -179,7 +140,7 @@ public class AsaHandler : MonoBehaviour
         _cloudSpatialAnchorSession.AnchorLocated += CloudSpatialAnchorSession_AnchorLocated;
         _cloudSpatialAnchorSession.LocateAnchorsCompleted += CloudSpatialAnchorSession_LocateAnchorsCompleted;
 
-        _cloudSpatialAnchorSession.LogLevel = SessionLogLevel.All;
+        _cloudSpatialAnchorSession.LogLevel = SessionLogLevel.Warning;
 
         _cloudSpatialAnchorSession.Error += CloudSpatialAnchorSession_Error;
         _cloudSpatialAnchorSession.OnLogDebug += CloudSpatialAnchorSession_OnLogDebug;
@@ -187,7 +148,7 @@ public class AsaHandler : MonoBehaviour
 
         _cloudSpatialAnchorSession.Start();
 
-        Debug.Log("ASA Info: Session was initialized.");
+        Log("ASA session initialized.\r\n Gaze and tap to place an anchor.");
     }
 
     /// <summary>
@@ -201,12 +162,6 @@ public class AsaHandler : MonoBehaviour
             _prefabInstance = null;
         }
 
-        if (_prefabInstanceMaterial != null)
-        {
-            Destroy(_prefabInstanceMaterial);
-            _prefabInstanceMaterial = null;
-        }
-
         _currentCloudAnchor = null;
     }
 
@@ -215,46 +170,46 @@ public class AsaHandler : MonoBehaviour
     /// </summary>
     public void ResetSession(Action completionRoutine = null)
     {
-        Debug.Log("ASA Info: Resetting the session.");
+        Log("Resetting the session...");
 
         if (_cloudSpatialAnchorSession.GetActiveWatchers().Count > 0)
         {
-            Debug.LogError("ASA Error: We are resetting the session with active watchers, which is unexpected.");
+            Log("We are resetting the session with active watchers, which is unexpected.", Color.red);
         }
 
         CleanupObjects();
 
         _cloudSpatialAnchorSession.Reset();
 
-        _dispatchQueue.Enqueue(() =>
+        DispatcherQueue.Enqueue(() =>
         {
             if (_cloudSpatialAnchorSession != null)
             {
                 _cloudSpatialAnchorSession.Stop();
                 _cloudSpatialAnchorSession.Dispose();
-                Debug.Log("ASA Info: Session was reset.");
+                Log("ASA session reset.");
                 completionRoutine?.Invoke();
             }
             else
             {
-                Debug.LogError("ASA Error: cloudSpatialAnchorSession was null, which is unexpected.");
+                Log("CloudSpatialAnchorSession was null, which is unexpected.", Color.red);
             }
         });
     }
 
     private void CloudSpatialAnchorSession_Error(object sender, SessionErrorEventArgs args)
     {
-        Debug.LogError("ASA Error: " + args.ErrorMessage);
+        Log($"ASA Error: {args.ErrorMessage}", Color.red);
     }
 
     private void CloudSpatialAnchorSession_OnLogDebug(object sender, OnLogDebugEventArgs args)
     {
-        Debug.Log("ASA Log: " + args.Message);
+        //  Log("ASA Log: " + args.Message);
     }
 
     private void CloudSpatialAnchorSession_SessionUpdated(object sender, SessionUpdatedEventArgs args)
     {
-        Debug.Log("ASA Log: recommendedForCreate: " + args.Status.RecommendedForCreateProgress);
+    //    Log($"Look around to capture enough anchor data: {_recommendedSpatialDataForUpload:P0}", Color.yellow);
         _recommendedSpatialDataForUpload = args.Status.RecommendedForCreateProgress;
     }
 
@@ -263,14 +218,12 @@ public class AsaHandler : MonoBehaviour
         switch (args.Status)
         {
             case LocateAnchorStatus.Located:
-                Log($"Anchor located: {args.Identifier}", Color.green);
-                QueueOnUpdate(() =>
+                Log($"Anchor located: {args.Identifier}\r\nTap to start over.", Color.green);
+                DispatcherQueue.Enqueue(() =>
                 {
                     // Create a green sphere.
                     _prefabInstance = GameObject.Instantiate(Prefab, Vector3.zero, Quaternion.identity) as GameObject;
                     var localAnchor = _prefabInstance.AddComponent<WorldAnchor>();
-                    _prefabInstanceMaterial = _prefabInstance.GetComponent<MeshRenderer>().material;
-                    _prefabInstanceMaterial.color = Color.green;
 
                     // Get the WorldAnchor from the CloudSpatialAnchor and assign it to the local anchor 
                     localAnchor.SetNativeSpatialAnchorPtr(args.Anchor.LocalAnchor);
@@ -281,35 +234,32 @@ public class AsaHandler : MonoBehaviour
                 });
                 break;
             case LocateAnchorStatus.AlreadyTracked:
-                Debug.Log("ASA Info: Anchor already tracked. Identifier: " + args.Identifier);
+                Log($"ASA Anchor already tracked: {args.Identifier}", Color.magenta);
                 break;
             case LocateAnchorStatus.NotLocated:
-                Debug.Log("ASA Info: Anchor not located. Identifier: " + args.Identifier);
+                Log($"ASA Anchor not located : {args.Identifier}", Color.magenta);
                 break;
             case LocateAnchorStatus.NotLocatedAnchorDoesNotExist:
-                Debug.LogError("ASA Error: Anchor not located does not exist. Identifier: " + args.Identifier);
+                Log($"ASA Anchor not located -> Does not exist: {args.Identifier}", Color.red);
                 break;
         }
     }
 
     private void CloudSpatialAnchorSession_LocateAnchorsCompleted(object sender, LocateAnchorsCompletedEventArgs args)
     {
-        Debug.Log("ASA Info: Locate anchors completed. Watcher identifier: " + args.Watcher.Identifier);
+ //       Log($"ASA locating anchors completed. Watcher identifier: {args.Watcher.Identifier}");
     }
 
     private void Update()
     {
-        if (_dispatchQueue.TryDequeue(out Action action))
-        {
-            action();
-        }
+        DispatcherQueue.DequeueAndExecute();
     }
 
     private void Log(string text, Color? color = null)
     {
         if (LogText != null)
         {
-            QueueOnUpdate(() =>
+            DispatcherQueue.Enqueue(() =>
             {
                 LogText.text = text;
                 LogText.color = color ?? Color.gray;
@@ -320,14 +270,5 @@ public class AsaHandler : MonoBehaviour
             Debug.LogError("Log text control is not assigned.");
         }
         Debug.Log(text);
-    }
-
-    /// <summary>
-    /// Queues the specified <see cref="Action"/> on update.
-    /// </summary>
-    /// <param name="updateAction">The update action.</param>
-    private void QueueOnUpdate(Action action)
-    {
-        _dispatchQueue.Enqueue(action);
     }
 }

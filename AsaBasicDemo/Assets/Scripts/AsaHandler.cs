@@ -56,12 +56,14 @@ public class AsaHandler : MonoBehaviour
 
     public void OnTap(TappedEventArgs tapEvent)
     {
+        // Preventing accidental taps
         if (_wasTapped)
         {
             return;
         }
         _wasTapped = true;
 
+        // If no anchor was created before, we are in creation mode
         if (String.IsNullOrEmpty(_currentCloudAnchorId))
         {
             CreateAndSaveAnchor();
@@ -84,7 +86,7 @@ public class AsaHandler : MonoBehaviour
         Ray GazeRay = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
         Physics.Raycast(GazeRay, out RaycastHit hitPoint, float.MaxValue);
 
-        // Instantiate the Prefab
+        // Instantiate the anchor visual Prefab
         _prefabInstance = Instantiate(Prefab, hitPoint.point, Quaternion.identity) as GameObject;
         var localAnchor = _prefabInstance.AddComponent<WorldAnchor>();
         Log("Created local anchor.");
@@ -101,7 +103,7 @@ public class AsaHandler : MonoBehaviour
               while (_recommendedSpatialDataForUpload < 1.0F)
               {
                   Log($"Look around to capture enough anchor data: {_recommendedSpatialDataForUpload:P0}", Color.yellow);
-                  await Task.Delay(100);
+                  await Task.Delay(50);
               }
 
               try
@@ -188,15 +190,15 @@ public class AsaHandler : MonoBehaviour
         }
     }
 
-    private void CloudSpatialAnchorSession_Error(object sender, SessionErrorEventArgs args)
-    {
-        Log($"ASA Error: {args.ErrorMessage}", Color.red);
-    }
-
     private void CloudSpatialAnchorSession_SessionUpdated(object sender, SessionUpdatedEventArgs args)
     {
         //    Log($"Look around to capture enough anchor data: {_recommendedSpatialDataForUpload:P0}", Color.yellow);
         _recommendedSpatialDataForUpload = args.Status.RecommendedForCreateProgress;
+    }
+
+    private void CloudSpatialAnchorSession_Error(object sender, SessionErrorEventArgs args)
+    {
+        Log($"ASA Error: {args.ErrorMessage}", Color.red);
     }
 
     private void Update()

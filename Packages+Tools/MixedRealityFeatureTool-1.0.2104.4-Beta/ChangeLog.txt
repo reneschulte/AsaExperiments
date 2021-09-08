@@ -1,0 +1,44 @@
+Mixed Reality Feature Tool Change Log
+
+1.0.2104.4 Beta
+* Fix crash reported by some customers
+
+1.0.2104.3 Beta
+* Properly link settings help button to documentation
+* Add diagnostic logging when reading the catalog
+* Updates aimed at resolving server connection errors seen by some customers
+
+1.0.2104.2 Beta
+* Properly link settings help button
+* Add diagnostic logging when reading the catalog
+* Updates aimed at resolving server connection errors seen by some customers
+
+1.0.2104.0 Beta
+* Add Select All and Select None (per category) in Discovery
+* Add support for Early Access (private preview) programs
+* Add help links for each app view
+* Rework settings UI (tab the categories)
+* Fixes and stability improvements
+
+1.0.2103.3 Beta
+* Improve service connection logic
+
+1.0.2103.2 Beta
+* Enhance diagnostic logging
+* Updates to feature catalog retrieval
+
+1.0.2103.1 Beta
+* Add diagnostic logging
+* Improve detection of failed downloads (0 length files)
+
+1.0.2103.0 Beta
+* Improvements to download error detection
+* Updates on how manifests are written to avoid failure to update correctly
+* Escpaing removed from file paths in the project manifest
+* The feature catalog is now cached. To check for new features and updates, please use the refresh button in Discovery
+* Move project selection from the Import step to before Discovery
+* Available packages are filtered by the project's specified Unity version
+* The discovery view now displays currently installed packages
+
+1.0.2102.0 Beta
+* Initial release.

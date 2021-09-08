@@ -1,0 +1,62 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v5.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v5.0": {
+      "MixedRealityFeatureTool/1.0.2104.4": {
+        "dependencies": {
+          "Microsoft.MixedReality.FeatureTool.AzureDevOps": "1.0.2104.4",
+          "Microsoft.MixedReality.FeatureTool.Core": "1.0.2104.4",
+          "Microsoft.MixedReality.FeatureTool.ProjectManifest": "1.0.2104.4"
+        },
+        "runtime": {
+          "MixedRealityFeatureTool.dll": {}
+        }
+      },
+      "Microsoft.MixedReality.FeatureTool.AzureDevOps/1.0.2104.4": {
+        "runtime": {
+          "Microsoft.MixedReality.FeatureTool.AzureDevOps.dll": {}
+        }
+      },
+      "Microsoft.MixedReality.FeatureTool.Core/1.0.2104.4": {
+        "dependencies": {
+          "Microsoft.MixedReality.FeatureTool.AzureDevOps": "1.0.2104.4",
+          "Microsoft.MixedReality.FeatureTool.ProjectManifest": "1.0.2104.4"
+        },
+        "runtime": {
+          "Microsoft.MixedReality.FeatureTool.Core.dll": {}
+        }
+      },
+      "Microsoft.MixedReality.FeatureTool.ProjectManifest/1.0.2104.4": {
+        "runtime": {
+          "Microsoft.MixedReality.FeatureTool.ProjectManifest.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MixedRealityFeatureTool/1.0.2104.4": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.MixedReality.FeatureTool.AzureDevOps/1.0.2104.4": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.MixedReality.FeatureTool.Core/1.0.2104.4": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.MixedReality.FeatureTool.ProjectManifest/1.0.2104.4": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
